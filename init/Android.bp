@@ -1,0 +1,25 @@
+//
+// Copyright (C) 2026 The LineageOS Project
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+
+prebuilt_etc {
+    name: "fstab.mt6895",
+    src: "fstab.mt6895",
+    vendor: true,
+    vendor_ramdisk_available: true,
+}
+
+prebuilt_etc {
+    name: "fstab.zram",
+    src: "fstab.zram",
+    vendor: true,
+}
+
+prebuilt_etc {
+    name: "init.mt6895.power.rc",
+    src: "init.mt6895.power.rc",
+    sub_dir: "init/hw",
+    vendor: true,
+}

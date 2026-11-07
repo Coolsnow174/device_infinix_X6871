@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright (C) 2026 The LineageOS Project
+    SPDX-License-Identifier: Apache-2.0
+-->
+<!--
+    Framework compatibility matrix for the Infinix GT 20 Pro (X6871).
+
+    XOS 16.3 is a pure AIDL vendor, so the previously HIDL-based Transsion
+    entries (trancamserver, tneengine) are declared as AIDL here.
+-->
+<compatibility-matrix version="9.0" type="framework">
+    <hal format="aidl">
+        <name>vendor.transsion.hardware.trancam.trancamserver</name>
+        <fqname>ITrancamserver/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.transsion.hardware.tne.tneengine</name>
+        <fqname>ITne/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.transsion.hardware.tranfacaidl</name>
+        <fqname>ITranfacAidl/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.transsion.hardware.transtorage.storage</name>
+        <fqname>IAidlStorage/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.transsion.hardware.trannet</name>
+        <version>5</version>
+        <fqname>ITranNet/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.transsion.hardware.tranradio</name>
+        <version>11</version>
+        <fqname>ITranRadio/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.transsion.hardware.aegis</name>
+        <fqname>IAegisService/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.transsion.hardware.screeninfo</name>
+        <fqname>IScreenInfo/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.transsion.hardware.wifi.hostapd</name>
+        <fqname>IHostapd/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.transsion.hardware.wifi.tranSupplicant</name>
+        <fqname>ITranSupplicant/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.transsion.hardware.security.deviceauthen</name>
+        <fqname>IDeviceAuthen/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.transsion.hardware.security.hap</name>
+        <fqname>IHap/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.transsion.hardware.security.paytrigger</name>
+        <fqname>IPayTrigger/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.transsion.hardware.security.rpmbservice</name>
+        <fqname>IRpmbservice/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.transsion.hardware.security.trancriticalparavfy</name>
+        <fqname>ITranCriticalParaVfy/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.transsion.performance.sched</name>
+        <version>2</version>
+        <fqname>ITransSched/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.transsion.tranHwInfo</name>
+        <fqname>ITranHwInfo/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.hardware.trancharge</name>
+        <fqname>ITranCharge/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.hardware.tranled</name>
+        <fqname>ITranLed/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.hardware.trantp</name>
+        <fqname>ITrantp/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.mediatek.hardware.camera.isphal</name>
+        <version>1</version>
+        <interface>
+            <name>IISPModule</name>
+            <instance>internal/1</instance>
+        </interface>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.mediatek.hardware.mtkpower</name>
+        <version>3</version>
+        <fqname>IMtkPowerService/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.mediatek.hardware.mtkpower_applist</name>
+        <version>3</version>
+        <fqname>IMtkpower_applist/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.mediatek.hardware.mmlpq</name>
+        <version>5</version>
+        <fqname>IMmlpq/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.mediatek.hardware.gnss</name>
+        <version>3</version>
+        <fqname>IMtkGnss/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.mediatek.hardware.gnss.batching</name>
+        <fqname>IMtkGnssBatching/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.mediatek.hardware.netdagent</name>
+        <fqname>INetdagents/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.mediatek.hardware.nps.nos.fastswitch</name>
+        <fqname>INativeFastSwitch/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.pixelworks.hardware.display</name>
+        <fqname>IIris/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.pixelworks.hardware.feature</name>
+        <fqname>IIrisFeature/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.mediatek.hardware.apuware.apusys</name>
+        <version>5</version>
+        <interface>
+            <name>INeuronApusys</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="aidl">
+        <name>vendor.mediatek.hardware.apuware.utils</name>
+        <version>1</version>
+        <interface>
+            <name>IApuwareUtils</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+</compatibility-matrix>

@@ -49,9 +49,8 @@ $(call soong_config_set,android_hardware_audio,run_64bit,true)
 $(call soong_config_set_bool,android_hardware_audio,skip_speaker_layout_channel_mask_field,true)
 
 PRODUCT_PACKAGES += \
-    android.hardware.audio.service.aidl \
-    android.hardware.audio.core-service \
-    android.hardware.audio.effect-service.aidl
+    android.hardware.audio.service-aidl.example \
+    android.hardware.audio.effect.service-aidl.example
 
 PRODUCT_PACKAGES += \
     audio.primary.default:64 \
@@ -83,11 +82,16 @@ PRODUCT_PACKAGES += \
 # Boot Control
 PRODUCT_PACKAGES += \
     com.android.hardware.boot \
-    android.hardware.boot-service.default_recovery
+    android.hardware.boot-service.mediatek \
+    android.hardware.boot-service.mediatek_recovery
 
 # Camera
+#
+# XOS 16.3 ships the AIDL camera provider as a vendor binary
+# (vendor/bin/hw/camerahalserver + vendor/lib64/hw/mt6895/
+# android.hardware.camera.provider@2.6-impl-mediatek.so), so the camera
+# service itself does not have to be built from source.
 PRODUCT_PACKAGES += \
-    android.hardware.camera.provider@3.6.vendor \
     libcamera2ndk_vendor \
     libexif.vendor \
     libexpat.vendor \
@@ -113,11 +117,13 @@ PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.consumerir.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.consumerir.xml
 
 # Display
+#
+# The AIDL composer3 and allocator services are shipped as vendor binaries
+# (vendor/bin/hw/android.hardware.graphics.composer@3.4-service and
+# vendor/bin/hw/mt6895/android.hardware.graphics.allocator-V2-service-mediatek.mt6895),
+# so only the MediaTek specific helper services are built here.
 PRODUCT_PACKAGES += \
-    android.hardware.graphics.composer@3.4-service \
-    android.hardware.memtrack-service.mediatek \
-    android.hardware.graphics.allocator@2.0-service.mediatek
-
+    android.hardware.memtrack-service.mediatek
 PRODUCT_PACKAGES += \
     android.frameworks.sensorservice@1.0.vendor \
     libdrm.vendor \
@@ -310,6 +316,7 @@ PRODUCT_PACKAGES += \
     android.hardware.power-service.lineage-libperfmgr
 
 PRODUCT_PACKAGES += \
+    android.hardware.power-service-mediatek \
     vendor.mediatek.hardware.mtkpower@1.2-service.stub \
     vendor.mediatek.hardware.mtkpower@1.0.vendor \
     vendor.mediatek.hardware.mtkpower@1.1.vendor
@@ -351,7 +358,7 @@ PRODUCT_COPY_FILES += \
 # built from source here.
 PRODUCT_PACKAGES += \
     libsensorndkbridge:64 \
-    android.hardware.sensors-service.multihal \
+    android.hardware.sensors-service.aidl \
     android.hardware.sensors@2.0-subhal-impl-1.0:64
 
 PRODUCT_PACKAGES += \
@@ -391,10 +398,17 @@ PRODUCT_SOONG_NAMESPACES += \
 
 # Thermal
 PRODUCT_PACKAGES += \
+    android.hardware.thermal-service.mediatek \
     android.hardware.thermal@1.0-impl:64
+
+# USB
+PRODUCT_PACKAGES += \
+    android.hardware.usb-service.mediatek \
+    android.hardware.usb.gadget-service.mediatek
 
 # Vibrator
 PRODUCT_PACKAGES += \
+    android.hardware.vibrator-service.mediatek \
     android.hardware.vibrator-service.transsion
 
 # VNDK

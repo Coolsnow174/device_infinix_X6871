@@ -1,0 +1,348 @@
+/*
+ * Copyright (C) 2019 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "Sensor.h"
+#include <hardware/sensors.h>
+#include <log/log.h>
+#include <utils/SystemClock.h>
+#include <dirent.h>
+#include <fcntl.h>
+#include <linux/input.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+
+#include <cmath>
+
+namespace {
+
+static int findEventByCode(int targetCode) {
+    char devPath[PATH_MAX];
+    int fd;
+    uint8_t keyBits[KEY_MAX / 8 + 1];
+
+    for (int i = 0; i < 32; i++) {
+        snprintf(devPath, sizeof(devPath), "/dev/input/event%d", i);
+        fd = open(devPath, O_RDONLY | O_NONBLOCK);
+        if (fd < 0) continue;
+
+        memset(keyBits, 0, sizeof(keyBits));
+        if (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(keyBits)), keyBits) >= 0 ||
+            ioctl(fd, EVIOCGBIT(EV_MSC, sizeof(keyBits)), keyBits) >= 0) {
+            
+            if (keyBits[targetCode / 8] & (1 << (targetCode % 8))) {
+                return fd;
+            }
+        }
+        close(fd);
+    }
+    return -1;
+}
+
+static bool readFpEvent(int fd, int& screenX, int& screenY) {
+    struct input_event ev;
+    ssize_t rb = read(fd, &ev, sizeof(struct input_event));
+    if (rb < (ssize_t)sizeof(struct input_event)) return false;
+
+    if (ev.type == EV_ABS) {
+        if (ev.code == ABS_MT_POSITION_X) screenX = ev.value;
+        if (ev.code == ABS_MT_POSITION_Y) screenY = ev.value;
+    }
+
+    if (ev.type == EV_KEY && ev.code == 0xc3) {
+        if (ev.value == 1) {
+            return true;
+        } else if (ev.value == 0) {
+            return false;
+        }
+    }
+    return false;
+}
+
+}  // anonymous namespace
+
+namespace android {
+namespace hardware {
+namespace sensors {
+namespace V2_1 {
+namespace subhal {
+namespace implementation {
+
+using ::android::hardware::sensors::V1_0::MetaDataEventType;
+using ::android::hardware::sensors::V1_0::OperationMode;
+using ::android::hardware::sensors::V1_0::Result;
+using ::android::hardware::sensors::V1_0::SensorFlagBits;
+using ::android::hardware::sensors::V1_0::SensorStatus;
+using ::android::hardware::sensors::V2_1::Event;
+using ::android::hardware::sensors::V2_1::SensorInfo;
+using ::android::hardware::sensors::V2_1::SensorType;
+
+Sensor::Sensor(int32_t sensorHandle, ISensorsEventCallback* callback)
+    : mIsEnabled(false),
+      mSamplingPeriodNs(0),
+      mLastSampleTimeNs(0),
+      mCallback(callback),
+      mMode(OperationMode::NORMAL) {
+    mSensorInfo.sensorHandle = sensorHandle;
+    mSensorInfo.vendor = "The LineageOS Project";
+    mSensorInfo.version = 1;
+    constexpr float kDefaultMaxDelayUs = 1000 * 1000;
+    mSensorInfo.maxDelay = kDefaultMaxDelayUs;
+    mSensorInfo.fifoReservedEventCount = 0;
+    mSensorInfo.fifoMaxEventCount = 0;
+    mSensorInfo.requiredPermission = "";
+    mSensorInfo.flags = 0;
+    mRunThread = std::thread(startThread, this);
+}
+
+Sensor::~Sensor() {
+    // Ensure that lock is unlocked before calling mRunThread.join() or a
+    // deadlock will occur.
+    {
+        std::unique_lock<std::mutex> lock(mRunMutex);
+        mStopThread = true;
+        mIsEnabled = false;
+        mWaitCV.notify_all();
+    }
+    mRunThread.join();
+}
+
+const SensorInfo& Sensor::getSensorInfo() const {
+    return mSensorInfo;
+}
+
+void Sensor::batch(int32_t samplingPeriodNs) {
+    samplingPeriodNs =
+            std::clamp(samplingPeriodNs, mSensorInfo.minDelay * 1000, mSensorInfo.maxDelay * 1000);
+
+    if (mSamplingPeriodNs != samplingPeriodNs) {
+        mSamplingPeriodNs = samplingPeriodNs;
+        // Wake up the 'run' thread to check if a new event should be generated now
+        mWaitCV.notify_all();
+    }
+}
+
+void Sensor::activate(bool enable) {
+    std::lock_guard<std::mutex> lock(mRunMutex);
+    if (mIsEnabled != enable) {
+        mIsEnabled = enable;
+        mWaitCV.notify_all();
+    }
+}
+
+Result Sensor::flush() {
+    // Only generate a flush complete event if the sensor is enabled and if the sensor is not a
+    // one-shot sensor.
+    if (!mIsEnabled) {
+        return Result::BAD_VALUE;
+    }
+
+    // Note: If a sensor supports batching, write all of the currently batched events for the sensor
+    // to the Event FMQ prior to writing the flush complete event.
+    Event ev;
+    ev.sensorHandle = mSensorInfo.sensorHandle;
+    ev.sensorType = SensorType::META_DATA;
+    ev.u.meta.what = MetaDataEventType::META_DATA_FLUSH_COMPLETE;
+    std::vector<Event> evs{ev};
+    mCallback->postEvents(evs, isWakeUpSensor());
+
+    return Result::OK;
+}
+
+void Sensor::startThread(Sensor* sensor) {
+    sensor->run();
+}
+
+void Sensor::run() {
+    std::unique_lock<std::mutex> runLock(mRunMutex);
+    constexpr int64_t kNanosecondsInSeconds = 1000 * 1000 * 1000;
+
+    while (!mStopThread) {
+        if (!mIsEnabled || mMode == OperationMode::DATA_INJECTION) {
+            mWaitCV.wait(runLock, [&] {
+                return ((mIsEnabled && mMode == OperationMode::NORMAL) || mStopThread);
+            });
+        } else {
+            timespec curTime;
+            clock_gettime(CLOCK_REALTIME, &curTime);
+            int64_t now = (curTime.tv_sec * kNanosecondsInSeconds) + curTime.tv_nsec;
+            int64_t nextSampleTime = mLastSampleTimeNs + mSamplingPeriodNs;
+
+            if (now >= nextSampleTime) {
+                mLastSampleTimeNs = now;
+                nextSampleTime = mLastSampleTimeNs + mSamplingPeriodNs;
+                mCallback->postEvents(readEvents(), isWakeUpSensor());
+            }
+
+            mWaitCV.wait_for(runLock, std::chrono::nanoseconds(nextSampleTime - now));
+        }
+    }
+}
+
+bool Sensor::isWakeUpSensor() {
+    return mSensorInfo.flags & static_cast<uint32_t>(SensorFlagBits::WAKE_UP);
+}
+
+std::vector<Event> Sensor::readEvents() {
+    std::vector<Event> events;
+    Event event;
+    event.sensorHandle = mSensorInfo.sensorHandle;
+    event.sensorType = mSensorInfo.type;
+    event.timestamp = ::android::elapsedRealtimeNano();
+    event.u.vec3.x = 0;
+    event.u.vec3.y = 0;
+    event.u.vec3.z = 0;
+    event.u.vec3.status = SensorStatus::ACCURACY_HIGH;
+    events.push_back(event);
+    return events;
+}
+
+void Sensor::setOperationMode(OperationMode mode) {
+    std::lock_guard<std::mutex> lock(mRunMutex);
+    if (mMode != mode) {
+        mMode = mode;
+        mWaitCV.notify_all();
+    }
+}
+
+bool Sensor::supportsDataInjection() const {
+    return mSensorInfo.flags & static_cast<uint32_t>(SensorFlagBits::DATA_INJECTION);
+}
+
+Result Sensor::injectEvent(const Event& event) {
+    Result result = Result::OK;
+    if (event.sensorType == SensorType::ADDITIONAL_INFO) {
+        // When in OperationMode::NORMAL, SensorType::ADDITIONAL_INFO is used to push operation
+        // environment data into the device.
+    } else if (!supportsDataInjection()) {
+        result = Result::INVALID_OPERATION;
+    } else if (mMode == OperationMode::DATA_INJECTION) {
+        mCallback->postEvents(std::vector<Event>{event}, isWakeUpSensor());
+    } else {
+        result = Result::BAD_VALUE;
+    }
+    return result;
+}
+
+OneShotSensor::OneShotSensor(int32_t sensorHandle, ISensorsEventCallback* callback)
+    : Sensor(sensorHandle, callback) {
+    mSensorInfo.minDelay = -1;
+    mSensorInfo.maxDelay = 0;
+    mSensorInfo.flags |= SensorFlagBits::ONE_SHOT_MODE;
+}
+
+UdfpsSensor::UdfpsSensor(int32_t sensorHandle, ISensorsEventCallback* callback)
+    : OneShotSensor(sensorHandle, callback) {
+    mSensorInfo.name = "UDFPS Sensor";
+    mSensorInfo.type = static_cast<SensorType>(static_cast<int32_t>(SensorType::DEVICE_PRIVATE_BASE) + 1);
+    mSensorInfo.typeAsString = "org.lineageos.sensor.udfps";
+    mSensorInfo.flags |= SensorFlagBits::WAKE_UP;
+
+    if (pipe(mWaitPipeFd) < 0) {
+        mWaitPipeFd[0] = mWaitPipeFd[1] = -1;
+    }
+
+    mPollFd = findEventByCode(0xc3);
+
+    mPolls[0] = { .fd = mWaitPipeFd[0], .events = POLLIN };
+    mPolls[1] = { .fd = mPollFd, .events = POLLIN };
+}
+
+UdfpsSensor::~UdfpsSensor() {
+    interruptPoll();
+}
+
+void UdfpsSensor::activate(bool enable) {
+    std::lock_guard<std::mutex> lock(mRunMutex);
+    if (mIsEnabled != enable) {
+        if (enable) {
+            flushEvents(mPollFd);
+        }
+        
+        mIsEnabled = enable;
+        interruptPoll();
+        mWaitCV.notify_all();
+    }
+}
+
+void UdfpsSensor::setOperationMode(OperationMode mode) {
+    Sensor::setOperationMode(mode);
+    interruptPoll();
+}
+
+void UdfpsSensor::run() {
+    std::unique_lock<std::mutex> runLock(mRunMutex);
+
+    while (!mStopThread) {
+        if (!mIsEnabled || mMode == OperationMode::DATA_INJECTION) {
+            mWaitCV.wait(runLock, [&] {
+                return ((mIsEnabled && mMode == OperationMode::NORMAL) || mStopThread);
+            });
+        } else {
+            runLock.unlock();
+            int rc = poll(mPolls, 2, -1);
+            runLock.lock();
+
+            if (rc < 0) continue;
+
+            if (mPolls[0].revents & POLLIN) {
+                char buf;
+                read(mWaitPipeFd[0], &buf, sizeof(buf));
+            }
+
+            if (mPolls[1].revents & POLLIN) {
+                if (readFpEvent(mPollFd, mScreenX, mScreenY)) {
+                    
+                    runLock.unlock();
+                    std::this_thread::sleep_for(std::chrono::milliseconds(130));
+                    runLock.lock();
+                    
+                    mIsEnabled = false;
+                    mCallback->postEvents(readEvents(), isWakeUpSensor());
+                }
+            }
+        }
+    }
+}
+
+std::vector<Event> UdfpsSensor::readEvents() {
+    std::vector<Event> events;
+    Event event;
+    event.sensorHandle = mSensorInfo.sensorHandle;
+    event.sensorType = mSensorInfo.type;
+    event.timestamp = ::android::elapsedRealtimeNano();
+    event.u.data[0] = mScreenX;
+    event.u.data[1] = mScreenY;
+    events.push_back(event);
+    return events;
+}
+
+void UdfpsSensor::interruptPoll() {
+    if (mWaitPipeFd[1] < 0) return;
+    char c = '1';
+    write(mWaitPipeFd[1], &c, sizeof(c));
+}
+
+void UdfpsSensor::flushEvents(int fd) {
+    struct input_event ev;
+    while (read(fd, &ev, sizeof(ev)) > 0);
+}
+
+}  // namespace implementation
+}  // namespace subhal
+}  // namespace V2_1
+}  // namespace sensors
+}  // namespace hardware
+}  // namespace android

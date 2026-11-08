@@ -1,0 +1,7 @@
+[
+  {
+    "apex": "com.android.hardware.cas.apex",
+    "path": "etc/vintf/android.hardware.cas-service.xml",
+    "content": "<!--\n    Input:\n        out_hal/soong/.intermediates/hardware/interfaces/cas/aidl/default/android.hardware.cas-service.xml/android_arm64_armv8-2a_cortex-a55/android.hardware.cas-service.xml\n-->\n<manifest version=\"9.0\" type=\"device\">\n    <hal format=\"aidl\">\n        <name>android.hardware.cas</name>\n        <fqname>IMediaCasService/default</fqname>\n    </hal>\n</manifest>\n"
+  }
+]

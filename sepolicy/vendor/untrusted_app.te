@@ -1,0 +1,8 @@
+allow untrusted_app unlabeled:filesystem getattr;
+dontaudit untrusted_app proc_version:file read;
+
+dontaudit untrusted_app cache_file:lnk_file read;
+dontaudit untrusted_app shell_test_data_file:dir search;
+dontaudit untrusted_app mnt_vendor_file:dir search;
+
+get_prop(untrusted_app, vendor_camera_prop)

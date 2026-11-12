@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: The LineageOS Project
+# SPDX-License-Identifier: Apache-2.0
+#
+# Generated from the XOS 16.3.0.155SP20 (BP2A.250605.031.A3) dump.
+#
+
+ro.tran.vendor_dlkm.version=MT6896-16.3.0.155_STB261014171058

@@ -3,16 +3,13 @@ import /vendor/etc/init/hw/init.mtkgki.rc
 # MTK project .rc configure
 
 on init
-    # Set gesture touch permissions
-    chown system system /proc/gesture_function
-    chmod 0660 /proc/gesture_function
-
-    # OTG
-    write /sys/devices/platform/odm/odm:tran_battery/OTG_CTL 1
+    mkdir /mnt/media_rw/usbotg 0700 media_rw media_rw
+    mkdir /storage/usbotg 0700 root root
+    write /sys/module/musb_hdrc/parameters/mu3d_force_on 1
 
 on post-fs-data
 
-    # Camera
+#Camera
     chmod 0660 /dev/MAINAF
     chown system camera /dev/MAINAF
 
@@ -34,65 +31,34 @@ on post-fs-data
     chmod 0660 /dev/BU64745GWZAF
     chown system camera /dev/BU64745GWZAF
 
-    # SMB
+#SMB
     chown system system /proc/smb/ScreenComm
     chmod 0660 /proc/smb/ScreenComm
 
     chmod 0660 /dev/spm
     chown system system /dev/spm
 
-    chown system system /sys/class/leds/vibrator_single/activate
-    chown system system /sys/class/leds/vibrator_single/activate_mode
-    chown system system /sys/class/leds/vibrator_single/awrw
-    chown system system /sys/class/leds/vibrator_single/brightness
-    chown system system /sys/class/leds/vibrator_single/bullet_nr
-    chown system system /sys/class/leds/vibrator_single/cali
-    chown system system /sys/class/leds/vibrator_single/cont
-    chown system system /sys/class/leds/vibrator_single/cont_brk_time
-    chown system system /sys/class/leds/vibrator_single/cont_drv_lvl
-    chown system system /sys/class/leds/vibrator_single/cont_drv_time
-    chown system system /sys/class/leds/vibrator_single/cont_wait_num
-    chown system system /sys/class/leds/vibrator_single/duration
-    chown system system /sys/class/leds/vibrator_single/f0
-    chown system system /sys/class/leds/vibrator_single/f0_save
-    chown system system /sys/class/leds/vibrator_single/gain
-    chown system system /sys/class/leds/vibrator_single/gun_type
-    chown system system /sys/class/leds/vibrator_single/haptic_audio
-    chown system system /sys/class/leds/vibrator_single/haptic_audio_time
-    chown system system /sys/class/leds/vibrator_single/index
-    chown system system /sys/class/leds/vibrator_single/loop
-    chown system system /sys/class/leds/vibrator_single/lra_resistance
-    chown system system /sys/class/leds/vibrator_single/max_brightness
-    chown system system /sys/class/leds/vibrator_single/osc_cali
-    chown system system /sys/class/leds/vibrator_single/osc_save
-    chown system system /sys/class/leds/vibrator_single/prctmode
-    chown system system /sys/class/leds/vibrator_single/ram_num
-    chown system system /sys/class/leds/vibrator_single/ram_update
-    chown system system /sys/class/leds/vibrator_single/ram_vbat_comp
-    chown system system /sys/class/leds/vibrator_single/reg
-    chown system system /sys/class/leds/vibrator_single/rtp
-    chown system system /sys/class/leds/vibrator_single/seq
-    chown system system /sys/class/leds/vibrator_single/state
-    chown system system /sys/class/leds/vibrator_single/trig
-    chown system system /sys/class/leds/vibrator_single/trigger
-    chown system system /sys/class/leds/vibrator_single/uevent
-    chown system system /sys/class/leds/vibrator_single/vbat_monitor
 
-    chmod 0666 /dev/lirc0
-    chown system system /dev/lirc0
+on init
+    # Refer to http://source.android.com/devices/tech/storage/index.html
+    # It said, "Starting in Android 4.4, multiple external storage devices are surfaced to developers through
+    #           Context.getExternalFilesDirs(), Context.getExternalCacheDirs(), and Context.getObbDirs().
+    #           External storage devices surfaced through these APIs must be a semi-permanent part of the device (such as an SD card slot in a battery compartment).
+    #           Developers expect data stored in these locations to be available over long periods of time."
+    # Therefore, if the target doesn't support sd hot-plugging (Ex: the SD card slot in a battery compartment), we need to export SECONDARY_STORAGE in 'boot' section
+    #
+    # export SECONDARY_STORAGE /storage/sdcard1
 
-    # NFC
-    mkdir /data/vendor 0777 nfc nfc
-    mkdir /data/vendor/nfc 0777 nfc nfc
-    mkdir /data/vendor/nfc/param 0777 nfc nfc
-    chmod 0660 /dev/pn553
-    chown nfc nfc /dev/pn553
+service fuse_usbotg /system/bin/sdcard -u 1023 -g 1023 -w 1023 -d /mnt/media_rw/usbotg /storage/usbotg
+    user system
+    group system
+    class late_start
+    disabled
 
-    # SoFOD
-    write /proc/gesture_function fp1
-
-on late-fs
-    chmod 0666 /dev/aw8697_haptic
-    chown system system /dev/aw8697_haptic
+# start mmstat
 on property:sys.boot_completed=1
-    setprop vendor.haptic.calibrate.done 1
+    mkdir /sys/kernel/tracing/instances/mmstat 711
+    write /sys/kernel/tracing/instances/mmstat/tracing_on 0
+    write /sys/kernel/tracing/instances/mmstat/buffer_size_kb 16
+    write /sys/kernel/tracing/instances/mmstat/events/mmstat/enable 1
+    write /sys/kernel/tracing/instances/mmstat/tracing_on 1

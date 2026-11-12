@@ -20,10 +20,15 @@
 /dev/block/by-name/nvram     0660    root    system
 /dev/block/by-name/para      0660    root    system
 /dev/block/by-name/logo      0660    root    system
+/dev/block/by-name/logo_a    0660    root    system
+/dev/block/by-name/logo_b    0660    root    system
 /dev/block/by-name/frp       0660    root    system
 /dev/block/by-name/md1img    0640    root    system
 /dev/block/by-name/md1img_a  0640    root    system
 /dev/block/by-name/md1img_b  0640    root    system
+/dev/block/by-name/modem_b   0640    root    system
+/dev/block/by-name/modem_a   0640    root    system
+/dev/block/by-name/modem     0640    root    system
 /dev/block/by-name/md1dsp    0660    root    system
 /dev/block/by-name/boot_para 0640    root    system
 
@@ -61,10 +66,8 @@
 /dev/fw_log_wifi          0660   wifi     wifi
 /dev/fw_log_ics	          0660   wifi     wifi
 
-# NFBD:modify for dev/fm 0660->0666 TESSCR-20993 by feng.wang 20230908 start
 # FMRadio
-/dev/fm                   0666   system     system
-# NFBD:modify for dev/fm 0660->0666 TESSCR-20993 by feng.wang 20230908 end
+/dev/fm                   0660   media     media
 
 # NFC
 /dev/st21nfc              0660   nfc        radio
@@ -100,6 +103,9 @@
 /dev/vdec-fmt   0660 media system
 /dev/fmt_sync   0660 system system
 
+#videogo
+/dev/videogo     0660 media system
+
 #v4l2 camera
 /dev/mtk_hcp     0660 camera system
 
@@ -108,6 +114,9 @@
 
 # MDDP node
 /dev/mddp                 0660   system     system
+
+#sensor
+/dev/hf_manager        0660    system    system
 
 # add the read write right of ttyUSB*
 /dev/bus/usb/*     	  0660   root       usb
@@ -156,6 +165,9 @@
 # Camera
 /dev/camera_eeprom*       0660   system     camera
 
+# gzvm for AVF
+/dev/gzvm                 0666   root       root
+
 #FOR VIA MODEM
 /dev/ttySDIO*             0660   radio      sdcard_rw
 /dev/ttyRB*               0660   radio      radio
@@ -199,8 +211,16 @@
 /dev/ttyACM0              0660   radio      radio
 
 #CCU
-/dev/ccu*      0660 system camera
+/dev/ccu*      0660 camera system
 
+#widevine driver node
+/dev/drm_wv    0660    media    system
+
+#dynamic sensor
+/dev/hidraw*   0660 system system
+
+#USD：bringup elliptic_transnd by weixun.hong5 on 20260520 start
 #elliptic sensor
 /dev/elliptic0            0644   system     system
 /dev/elliptic1            0644   system     system
+#USD：bringup elliptic_transnd by weixun.hong5 on 20260520 end

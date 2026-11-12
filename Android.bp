@@ -1,26 +1,8 @@
-soong_namespace {}
+//
+// Copyright (C) 2026 The LineageOS Project
+//
+// SPDX-License-Identifier: Apache-2.0
+//
 
-install_symlink {
-    name: "x6871_vendor_modules_link",
-    vendor: true,
-    installed_location: "lib/modules",
-    symlink_target: "/vendor_dlkm/lib/modules",
-}
-install_symlink {
-    name: "x6871_odm_modules_link",
-    device_specific: true,
-    installed_location: "lib/modules",
-    symlink_target: "/odm_dlkm/lib/modules",
-}
-install_symlink {
-    name: "x6871_sensor_firmware_link",
-    vendor: true,
-    installed_location: "firmware/sensor",
-    symlink_target: "/vendor/etc/imgsensor/mt6895",
-}
-install_symlink {
-    name: "x6871_mdota_link",
-    vendor: true,
-    installed_location: "etc/mdota",
-    symlink_target: "/mnt/vendor/mdota",
+soong_namespace {
 }

@@ -1,53 +1,74 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S PYTHONPATH=../../../tools/extract-utils python3
+#
+# SPDX-FileCopyrightText: 2026 The LineageOS Project
 # SPDX-License-Identifier: Apache-2.0
-"""Extract with official LineageOS lineage-23.0 extract-utils.
+#
 
-Set EXTRACT_UTILS_PATH outside an Android checkout. --output selects the
-physical vendor directory without changing Android build-time paths.
-"""
-import os
-import sys
-from pathlib import Path
+from extract_utils.fixups_blob import (
+    blob_fixup,
+    blob_fixups_user_type,
+)
 
-here = Path(__file__).resolve().parent
-candidate = Path(os.environ.get('EXTRACT_UTILS_PATH', here.parents[2] / 'tools/extract-utils'))
-sys.path.insert(0, str(candidate))
-from extract_utils.main import ExtractUtils, ExtractUtilsModule
+from extract_utils.fixups_lib import (
+    lib_fixups,
+    lib_fixups_user_type,
+)
 
-output = None
-if '--output' in sys.argv:
-    i = sys.argv.index('--output')
-    output = Path(sys.argv[i + 1]).resolve()
-    del sys.argv[i:i + 2]
-# Resolve DT_NEEDED names to the selected stock module names. Prefer the
-# partition root over hw/SoC implementations with duplicate basenames.
-from functools import partial
+from extract_utils.main import (
+    ExtractUtils,
+    ExtractUtilsModule,
+)
 
-def mapped_lib(module_name, lib, partition):
-    return module_name
+namespace_imports = [
+    'device/infinix/X6871',
+    'hardware/mediatek',
+]
 
-providers = {}
-for line in (here / 'proprietary-files.txt').read_text().splitlines():
-    if ';MODULE=' not in line:
-        continue
-    path = line.lstrip('-').split(';')[0]
-    if not path.endswith('.so'):
-        continue
-    name = Path(path).stem
-    module_name = line.split(';MODULE=')[1].split(';')[0]
-    score = (path.count('/'), not path.startswith('vendor/'), path)
-    if name not in providers or score < providers[name][0]:
-        providers[name] = (score, module_name)
-fixups = {name: partial(mapped_lib, value[1]) for name, value in providers.items()}
-module = ExtractUtilsModule('X6871', 'infinix', lib_fixups=fixups, namespace_imports=[
-    'device/infinix/X6871', 'hardware/mediatek', 'hardware/transsion',
-])
-module.device_path = str(here)
-# The constructor resolves the default file list before device_path is changed.
-module.proprietary_files.clear()
-module.add_proprietary_file('proprietary-files.txt')
-if output:
-    module.vendor_path = str(output)
-    module.vendor_rro_path = str(output / 'rro_overlays')
+lib_fixups: lib_fixups_user_type = {
+    **lib_fixups,
+}
+
+blob_fixups: blob_fixups_user_type = {
+    'vendor/bin/hw/android.hardware.media.c2-mediatek-64b': blob_fixup()
+        .replace_needed('libavservices_minijail_vendor.so', 'libavservices_minijail.so'),
+    'vendor/lib64/libmnl.so': blob_fixup()
+        .add_needed('libcutils.so'),
+    # Audio prebuilt AIDL compatibility: versioned stubs differ from the ones
+    # AOSP builds, so they ship renamed as *_prebuilt.so and every dependent
+    # blob gets its DT_NEEDED entry rewritten to the prebuilt name.
+    'vendor/lib64/android.hardware.audio.effect-V2-ndk_prebuilt.so': blob_fixup()
+        .replace_needed('android.hardware.audio.common-V3-ndk.so', 'android.hardware.audio.common-V3-ndk_prebuilt.so')
+        .replace_needed('android.media.audio.common.types-V3-ndk.so', 'android.media.audio.common.types-V3-ndk_prebuilt.so'),
+    'vendor/lib64/android.hardware.audio.common-V3-ndk_prebuilt.so': blob_fixup()
+        .replace_needed('android.media.audio.common.types-V3-ndk.so', 'android.media.audio.common.types-V3-ndk_prebuilt.so'),
+    'vendor/lib64/android.hardware.bluetooth.audio-V4-ndk_prebuilt.so': blob_fixup()
+        .replace_needed('android.hardware.audio.common-V3-ndk.so', 'android.hardware.audio.common-V3-ndk_prebuilt.so'),
+    ('vendor/lib64/hw/audio.primary.mediatek.so', 'vendor/lib64/hw/audio.primary.mt6895.so'): blob_fixup()
+        .replace_needed('android.hardware.audio.effect-V2-ndk.so', 'android.hardware.audio.effect-V2-ndk_prebuilt.so')
+        .replace_needed('android.hardware.bluetooth.audio-V4-ndk.so', 'android.hardware.bluetooth.audio-V4-ndk_prebuilt.so')
+        .replace_needed('vendor.mediatek.hardware.bluetooth.audio-V1-ndk.so', 'vendor.mediatek.hardware.bluetooth.audio-V1-ndk_prebuilt.so')
+        .replace_needed('libbluetooth_audio_session_aidl.so', 'libbluetooth_audio_session_aidl_prebuilt.so'),
+    'vendor/lib64/libpowerhal.so': blob_fixup()
+        .replace_needed('android.hardware.bluetooth.audio-V4-ndk.so', 'android.hardware.bluetooth.audio-V4-ndk_prebuilt.so'),
+    ('vendor/lib64/android.hardware.bluetooth.audio-impl-mediatek.so', 'vendor/lib64/hw/vendor.mediatek.hardware.bluetooth.audio@2.1-impl.so', 'vendor/lib64/hw/vendor.mediatek.hardware.bluetooth.audio@2.2-impl.so', 'vendor/lib64/libbluetooth_audio_session_aidl_mtk.so'): blob_fixup()
+        .replace_needed('vendor.mediatek.hardware.bluetooth.audio-V1-ndk.so', 'vendor.mediatek.hardware.bluetooth.audio-V1-ndk_prebuilt.so'),
+    ('vendor/lib64/libbluetooth_audio_session_aidl_displayone.so', 'vendor/lib64/libbluetooth_audio_session_aidl_displaytwo.so', 'vendor/lib64/libbluetooth_audio_session_aidl_mtk.so'): blob_fixup()
+        .replace_needed('vendor.mediatek.hardware.bluetooth.audio-V1-ndk.so', 'vendor.mediatek.hardware.bluetooth.audio-V1-ndk_prebuilt.so')
+        .replace_needed('libbluetooth_audio_session_aidl.so', 'libbluetooth_audio_session_aidl_prebuilt.so'),
+    'vendor/lib64/libbluetooth_audio_session_aidl_prebuilt.so': blob_fixup()
+        .replace_needed('vendor.mediatek.hardware.bluetooth.audio-V1-ndk.so', 'vendor.mediatek.hardware.bluetooth.audio-V1-ndk_prebuilt.so'),
+    'vendor/lib64/libbluetooth_audio_session.so': blob_fixup()
+        .replace_needed('libbluetooth_audio_session_aidl.so', 'libbluetooth_audio_session_aidl_prebuilt.so'),
+}  # fmt: skip
+
+module = ExtractUtilsModule(
+    'X6871',
+    'infinix',
+    blob_fixups=blob_fixups,
+    lib_fixups=lib_fixups,
+    namespace_imports=namespace_imports,
+)
+
 if __name__ == '__main__':
-    ExtractUtils.device(module).run()
+    utils = ExtractUtils.device(module)
+    utils.run()

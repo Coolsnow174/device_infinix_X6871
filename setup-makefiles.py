@@ -1,1 +1,1 @@
-#!./extract-files.py --regenerate_makefiles
+#!/usr/bin/env -S ./extract-files.py --regenerate_makefiles
